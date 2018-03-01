@@ -15,12 +15,12 @@
 
 /* Testing level */
 #ifndef TEST
-#define TEST 10
+#define TEST 0
 #endif
 
 #define N_TOTAL		500
 #ifndef N_THREADS
-#define N_THREADS	5
+#define N_THREADS	2
 #endif
 #ifndef N_TOTAL_PRINT
 #define N_TOTAL_PRINT 50
@@ -59,10 +59,10 @@ typedef struct _pthread_v *pthread_t;
 static int pthread_create_wrapper(void *args)
 {
 	struct _pthread_v *tv = args;
-
+	
 	/* Call function and save return value */
 	tv->retval = tv->func(tv->arg);
-
+	
 	return 0;
 }
 
@@ -70,14 +70,14 @@ static int pthread_create_wrapper(void *args)
 static int pthread_create(pthread_t *th, void *attr, void *(* func)(void *), void *arg)
 {
 	struct _pthread_v *tv = calloc(1, sizeof(struct _pthread_v));
-
+	
 	/* Ignore attributes for now */
 	(void) attr;
-
+	
 	if (!tv) return 1;
-
+	
 	*th = tv;
-
+	
 	/* Save data in pthread_t */
 	tv->arg = arg;
 	tv->func = func;
@@ -90,17 +90,17 @@ static int pthread_create(pthread_t *th, void *attr, void *(* func)(void *), voi
 static int pthread_join(pthread_t t, void **res)
 {
 	struct _pthread_v *tv = t;
-
+	
 	WaitForSingleObject(tv->h, INFINITE);
 	CloseHandle(tv->h);
-
+	
 	/* Obtain return value */
 	if (res)
 	{
 		/* Hack - get correct return value, not the copy passed to us */
 		*res = tv->retval;
 	}
-
+	
 	free(tv);
 
 	return 0;
@@ -108,7 +108,7 @@ static int pthread_join(pthread_t t, void **res)
 
 #define pthread_mutex_lock EnterCriticalSection
 #define pthread_mutex_unlock LeaveCriticalSection
-#define pthread_mutex_trylock(L) (TryEnterCriticalSection(L) + EBUSY)
+#define pthread_mutex_trylock(L) (TryEnterCriticalSection(L) + EBUSY) 
 #define pthread_mutex_t CRITICAL_SECTION
 #define pthread_mutex_init(L, A) InitializeCriticalSection(L)
 #define pthread_mutex_destroy(L) DeleteCriticalSection(L)
@@ -177,13 +177,13 @@ static inline unsigned rng(void)
 {
 	unsigned long long c = 7319936632422683443ULL;
 	unsigned long long x = (rnd_seed += c);
-
+	
 	x ^= x >> 32;
 	x *= c;
 	x ^= x >> 32;
 	x *= c;
 	x ^= x >> 32;
-
+	
 	/* Return lower 32bits */
 	return x;
 }
@@ -250,7 +250,7 @@ static int zero_check(void *p, size_t size)
 		size -= sizeof(*ptr);
 	}
 	ptr2 = (unsigned char*)ptr;
-
+	
 	while (size > 0)
 	{
 		if (*ptr2++) return -1;
@@ -271,13 +271,12 @@ static void bin_alloc(struct bin *m, size_t size, unsigned r)
 	if (mem_check(m->ptr, m->size))
 	{
 		printf("memory corrupt!\n");
-        //malloc_stats();
 		exit(1);
 	}
 #endif
 	r %= 1024;
 
-	if (0)
+	if (r < 4)
 	{
 		/* memalign */
 		if (m->size > 0) free(m->ptr);
@@ -296,8 +295,8 @@ static void bin_alloc(struct bin *m, size_t size, unsigned r)
 			{
 				if (m->ptr[i]) break;
 			}
-			printf("calloc'ed memory non-zero (ptr=%p, size=%zd, i=%ld)!\n", m->ptr, size, i);
-			//exit(1);
+			printf("calloc'ed memory non-zero (ptr=%p, i=%ld)!\n", m->ptr, i);
+			exit(1);
 		}
 #endif
 	}
@@ -318,7 +317,7 @@ static void bin_alloc(struct bin *m, size_t size, unsigned r)
 		printf("out of memory (r=%d, size=%ld)!\n", r, (unsigned long)size);
 		exit(1);
 	}
-
+	
 	m->size = size;
 #if TEST > 0
 	mem_init(m->ptr, m->size);
@@ -335,7 +334,6 @@ static void bin_free(struct bin *m)
 	if (mem_check(m->ptr, m->size))
 	{
 		printf("memory corrupt!\n");
-        //malloc_stats();
 		exit(1);
 	}
 #endif
@@ -360,7 +358,6 @@ static void bin_test(struct bin_info *p)
 		if (mem_check(p->m[b].ptr, p->m[b].size))
 		{
 			printf("memory corrupt!\n");
-            //malloc_stats();
 			exit(1);
 		}
 	}
@@ -388,9 +385,9 @@ static void malloc_test(void *ptr, size_t stack_len)
 	struct bin_info p;
 
 	rnd_seed = st->seed;
-
+	
 #ifdef TEST_FORK
-	if (!RANDOM(TEST_FORK))
+	if (!RANDOM(TEST_FORK)) 
 	{
 		int status;
 
@@ -418,14 +415,14 @@ static void malloc_test(void *ptr, size_t stack_len)
 		p.m[b].ptr = NULL;
 		if (!RANDOM(2)) bin_alloc(&p.m[b], RANDOM(p.size) + 1, rng());
 	}
-
+	
 	for (i = 0; i <= st->max;)
 	{
 #if TEST > 1
 		bin_test(&p);
 #endif
 		actions = RANDOM(ACTIONS_MAX);
-
+		
 #if USE_MALLOC && MALLOC_DEBUG
 		if (actions < 2) mallinfo();
 #endif
@@ -436,7 +433,7 @@ static void malloc_test(void *ptr, size_t stack_len)
 		}
 		i += actions;
 		actions = RANDOM(ACTIONS_MAX);
-
+		
 		for (j = 0; j < actions; j++)
 		{
 			b = RANDOM(p.bins);
@@ -448,11 +445,11 @@ static void malloc_test(void *ptr, size_t stack_len)
 
 		i += actions;
 	}
-
+	
 	for (b = 0; b < p.bins; b++) bin_free(&p.m[b]);
-
+	
 	free(p.m);
-
+	
 #ifdef TEST_FORK
 end:
 #endif
@@ -624,7 +621,7 @@ int main(int argc, char *argv[])
 						   id, WEXITSTATUS(status));
 				}
 			}
-
+			
 			for (i = 0; i < n_thr; i++)
 			{
 				if (id == st[i].id)
@@ -648,7 +645,9 @@ int main(int argc, char *argv[])
 		if (st[i].sp) free(st[i].sp);
 	}
 	free(st);
-    malloc_stats();
+#if USE_MALLOC
+	malloc_stats();
+#endif
 	printf("Done.\n");
 	return 0;
 }

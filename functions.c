@@ -1,5 +1,33 @@
 #include "thread.h"
 
+//malloc_stats which prints out the information of this malloc family
+void malloc_stats() {
+	Myprintf("Malloc Statistics\n\n");
+	Myprintf("Total Allocattion Requests: %lu\n", Total_allocation_requests);
+	Myprintf("Total Free Requests: %lu\n", Total_free_requests);
+	Myprintf("Total Blocks in Use: %lu\n", mmap_use_count + sbrk_use_count);
+	Myprintf("Total Free Blocks: %lu\n", sbrk_free_count + mmap_free_count);
+	Myprintf("Total Number of Blocks: %lu\n", mmap_requests_count + sbrk_block_count);
+
+	Myprintf("Mmap Requests Count: %lu\n", mmap_requests_count);
+	Myprintf("Mmap Block in Use: %lu\n", mmap_use_count);
+	Myprintf("Mmap Block Free Count: %lu\n", mmap_free_count);
+
+	Myprintf("Sbrk Requests Count: %lu\n", sbrk_request_count);
+	Myprintf("Sbrk Block Count: %lu\n", sbrk_block_count);
+	Myprintf("Sbrk Block In Use: %lu\n", sbrk_use_count);
+	Myprintf("Sbrk Block Free Count: %lu\n", sbrk_free_count);
+}
+//mallinfo function which stores the current malloc library status
+struct mallinfo mallinfo(){
+	struct mallinfo info = {0,0,0,0};
+	info.hblkhd += mmap_requests_count;
+	info.ordblks += mmap_requests_count + sbrk_block_count;
+	info.uordblks += mmap_use_count + sbrk_use_count;
+	info.fordblks += sbrk_free_count + mmap_free_count;
+	return info;
+}
+
 //since we can't use printf, it is better to have our own printf function
 void Myprintf(const char * format, ...)  
 {   
@@ -12,6 +40,7 @@ void Myprintf(const char * format, ...)
 } 
 // malloc implementation
 void *Mymalloc(size_t size){
+	Total_allocation_requests++;
 	void *res = NULL;
 	//LARGE is the boundary between using normal mmap and buddy allocation
 	if (size > LARGE)
@@ -40,6 +69,8 @@ void *LARGE_MALLOC(size_t size){
   		Myprintf("Malloc error, mmap\n");
   		return NULL;
   	}
+	mmap_requests_count++;
+	mmap_use_count++;
   	MallocHeader *hdr = (MallocHeader*) res;
   	hdr->size = allocSize;
   	hdr->id = pthread_self();
@@ -73,7 +104,7 @@ void *SMALL_MALLOC(size_t size){
 	//delete hdr from the freelist
 	delete_h(&FreeHeader[order], hdr);
 	hdr->FreeOrNot = 0;
-
+	sbrk_use_count++;
 
 	return (void *)(++hdr);
 
@@ -124,7 +155,7 @@ void NewMemory(){
 		/* code */
 	}
 	FreeHeader[MAX + BASEORDER] = hdr;
-
+	sbrk_block_count += count;
 
 }
 
@@ -164,6 +195,7 @@ void MallocBlock(int order){
 }
 
 void MyFree(void *ptr){
+	Total_free_requests++;
 	if (ptr == NULL)
 	{
 		return;
@@ -198,6 +230,8 @@ void LARGE_FREE(MallocHeader *hdr){
 	{
 		Myprintf("error in munmap\n");
 	}
+	mmap_use_count--;
+	mmap_free_count++;
 }
 //free the block that is smaller than LARGE
 void SMALL_FREE(MallocHeader *hdr){
@@ -247,6 +281,8 @@ void SMALL_FREE(MallocHeader *hdr){
 	}
 	s = hdr->order;
 	insert(&FreeHeader[s], hdr);
+	sbrk_use_count--;
+	sbrk_free_count++;
 }
 
 void delete_h(MallocHeader **header, MallocHeader *hdr){
@@ -275,6 +311,7 @@ void insert(MallocHeader **header, MallocHeader *hdr){
 	}
 	*header = hdr;
 }
+
 
 
 

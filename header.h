@@ -44,6 +44,14 @@ typedef struct MallocHeader {
     int LargeOrNot;				//whether this memory block is a large block
 } MallocHeader;
 
+//MallInfo structure
+struct mallinfo{
+	unsigned long hblkhd;       //blocks of mmaped regions
+	unsigned long ordblks;		//total blocks
+	unsigned long uordblks;		//used blocks 
+	unsigned long fordblks;	  	//free blocks 
+};
+
 //this is the list which defines all the functions
 void *Mymalloc(size_t size);
 void Myprintf(const char * format, ...);
@@ -63,7 +71,10 @@ void *calloc(size_t nmemb, size_t size);
 void *realloc(void *ptr, size_t size);
 void *reallocarray(void *ptr, size_t nmemb, size_t size);
 void *memalign(size_t alignment, size_t size);
+void malloc_stats();
+struct mallinfo mallinfo();
 extern pthread_mutex_t lock;
+
 
 
 
